@@ -9,6 +9,7 @@
   },
   "host_permissions": [
     "https://selectloto.jp/*",
+    "https://staging.selectloto.jp/*",
     "https://*.mizuhobank.co.jp/*",
     "https://*.takarakuji-official.jp/*"
   ],
@@ -31,7 +32,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://selectloto.jp/*"
+        "https://selectloto.jp/*",
+        "https://staging.selectloto.jp/*"
       ],
       "js": ["content_selectloto.js"],
       "run_at": "document_idle",
