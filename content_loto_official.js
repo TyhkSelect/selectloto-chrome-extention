@@ -41,7 +41,7 @@ const LOTTERY_LABEL = {
   }
 
   // ② 入力ページ検出（ナビフォームはどのページにも存在するため先に確認）
-  const isInputPage = await waitForElement('.m_lotteryNumInputNum_btn', 3000)
+  const isInputPage = await waitForElement('.m_lotteryNumInputNum_btn', 5000)
     .then(() => true).catch(() => false);
 
   if (isInputPage) {
@@ -246,7 +246,7 @@ function waitFor(condition, timeout = 10000) {
     const check = () => {
       if (condition()) return resolve();
       if (Date.now() - start > timeout) return reject(new Error('Timeout'));
-      setTimeout(check, 200);
+      setTimeout(check, 100);
     };
     check();
   });
