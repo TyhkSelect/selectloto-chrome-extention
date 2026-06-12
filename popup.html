@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 340px;
+      font-family: sans-serif;
+      font-size: 13px;
+      padding: 12px;
+      margin: 0;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #0b72d9;
+    }
+    .subtitle {
+      color: #555;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 4px;
+    }
+    #selectAll {
+      padding: 3px 10px;
+      font-size: 12px;
+      background: #eee;
+      color: #333;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .combo-list {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+    .combo-item {
+      display: flex;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .combo-item:last-child { border-bottom: none; }
+    .combo-item:hover { background: #f5f9ff; }
+    .combo-item input[type="checkbox"] { flex-shrink: 0; cursor: pointer; }
+    .combo-numbers {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+      flex: 1;
+      cursor: pointer;
+    }
+    .num-chip {
+      background: #ddd;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .kuchi-badge {
+      font-size: 11px;
+      color: #555;
+      white-space: nowrap;
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .set-label {
+      font-size: 10px;
+      color: #999;
+      white-space: nowrap;
+    }
+    .actions {
+      margin-top: 10px;
+    }
+    #startBtn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      background: #0b72d9;
+      color: #fff;
+    }
+    #startBtn:hover { background: #085cab; }
+    #startBtn:disabled { background: #aaa; cursor: default; }
+    .msg {
+      color: #888;
+      text-align: center;
+      padding: 24px 12px;
+      line-height: 1.6;
+    }
+    .error { color: #c00; }
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #555;
+      min-height: 16px;
+      text-align: center;
+    }
+    .status.ok { color: #080; }
+
+    /* 確認ダイアログ */
+    .confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .confirm-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px 16px 14px;
+      width: 290px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    .confirm-box .confirm-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #d97706;
+      margin-bottom: 10px;
+    }
+    .confirm-box .confirm-round {
+      font-size: 22px;
+      font-weight: bold;
+      color: #0b72d9;
+      margin-bottom: 4px;
+    }
+    .confirm-box .confirm-count {
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    .confirm-box .confirm-note {
+      font-size: 11px;
+      color: #666;
+      background: #fff8e6;
+      border: 1px solid #f5c84a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 14px;
+      line-height: 1.6;
+      text-align: left;
+    }
+    .confirm-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .confirm-buttons button {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-cancel {
+      background: #eee;
+      color: #555;
+    }
+    .btn-cancel:hover { background: #ddd; }
+    .btn-confirm {
+      background: #0b72d9;
+      color: #fff;
+    }
+    .btn-confirm:hover { background: #085cab; }
+
+    /* 公式サイトボタン */
+    #officialSiteBtn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      background: #28a745;
+      color: #fff;
+    }
+    #officialSiteBtn:hover { background: #218838; }
+
+    /* 注記メッセージ */
+    .warning-note {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #856404;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h2>selectLOTO 購入入力補助</h2>
+  <div id="content">
+    <div class="msg">読み込み中…</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
