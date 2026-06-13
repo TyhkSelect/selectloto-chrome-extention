@@ -151,11 +151,13 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
       ).then(() => true).catch(() => false);
 
       if (paymentComplete) {
-        setStatus(statusUI, `✅ 支払い完了。続けて購入に進みます…`, 'active');
+        setStatus(statusUI, `✅ 支払い完了！\n「続けて購入」をクリックして\n次の入力を自動で開始します…`, 'active');
         await delay(1000);
         const continueBtn = findEnabledButton('続けて購入');
         if (continueBtn) {
           await clickInMainWorld(continueBtn);
+          await delay(1500);
+          // ここから次のバッチ入力へ自動遷移
           return;
         }
       } else {
