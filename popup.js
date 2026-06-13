@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .join('');
     div.innerHTML = `
       <input type="checkbox" id="c${i}" checked data-index="${i}">
+      <span class="combo-index">${i + 1}</span>
       <label for="c${i}" class="combo-numbers">${nums}</label>
       <span class="kuchi-badge">${combo.kuchiCount}口</span>
       <span class="set-label">S${combo.setNumber}</span>
