@@ -133,6 +133,24 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     return;
   }
 
+  // 50組ごとのカート上限チェック（50, 100, 150... で支払いへ進む）
+  if (currentIndex > 0 && currentIndex % 50 === 0) {
+    setStatus(statusUI, `✅ カート上限に達しました（${currentIndex}組）\nお支払い内容へ進みます…`, 'active');
+    await chrome.storage.local.set({
+      [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
+    });
+    await delay(1200);
+    const confirmBtn = findEnabledButton('お支払い内容のご確認');
+    if (confirmBtn) {
+      await clickInMainWorld(confirmBtn);
+      return;
+    } else {
+      setStatus(statusUI, '⚠️ お支払いボタンが見つかりません。手動で進めてください。', 'error');
+      return;
+    }
+  }
+
+  // 50組未満 → 買い物を続ける
   const remaining = total - currentIndex;
   setStatus(statusUI, `入力済 ${currentIndex}/${total}組\n残り${remaining}組 → 「買い物を続ける」へ移動します`, 'active');
   await chrome.storage.local.set({
@@ -171,14 +189,18 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
 
     // アクティブパネルを待つ
     await waitFor(() => !!getActivePanel());
-    const panel = getActivePanel();
+    let panel = getActivePanel();
 
     // リセット
     const resetBtn = panel.querySelector('.m_lotteryNumInputNum_btn2');
     if (resetBtn) { resetBtn.click(); await delay(400); }
 
-    // 数字を1つずつクリック
+    // 数字を1つずつクリック（毎回パネルを再確認）
     for (const num of combo.numbers) {
+      // パネルが変更されていないか確認
+      panel = getActivePanel();
+      if (!panel) throw new Error('アクティブパネルが見つかりません');
+
       const buttons = panel.querySelectorAll('.m_lotteryNumInputNum_btn');
       let clicked = false;
       for (const btn of buttons) {
@@ -188,7 +210,7 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
           break;
         }
       }
-      if (!clicked) throw new Error(`数字 ${num} のボタンが見つかりません`);
+      if (!clicked) throw new Error(`数字 ${num} のボタンが見つかりません (パネル内に数字なし)`);
       await delay(200);
     }
 

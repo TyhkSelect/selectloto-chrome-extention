@@ -117,9 +117,14 @@ function showOfficialSiteButton(lotteryType) {
   officialBtn.id = 'officialSiteBtn';
   officialBtn.textContent = '公式サイトで購入する';
   officialBtn.addEventListener('click', () => {
-    // ホームページ URL：自動的に正しいページへリダイレクト
-    const homeUrl = 'https://www.takarakuji-official.jp/';
-    chrome.tabs.create({ url: homeUrl });
+    // 直接購入ページへアクセス（リダイレクト不要）
+    const urls = {
+      loto6: 'https://www.takarakuji-official.jp/ec/loto6/',
+      loto7: 'https://www.takarakuji-official.jp/ec/loto7/',
+      miniloto: 'https://www.takarakuji-official.jp/ec/miniloto/'
+    };
+    const url = urls[lotteryType] || urls.loto6;
+    chrome.tabs.create({ url });
   });
   actionsDiv.appendChild(officialBtn);
 
