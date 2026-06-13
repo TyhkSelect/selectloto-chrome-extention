@@ -143,7 +143,25 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     const confirmBtn = findEnabledButton('お支払い内容のご確認');
     if (confirmBtn) {
       await clickInMainWorld(confirmBtn);
-      return;
+
+      // 支払い処理完了（「購入完了」ページ表示）まで待つ（最大3分）
+      const paymentComplete = await waitFor(
+        () => !!document.body.textContent.includes('購入完了'),
+        180000
+      ).then(() => true).catch(() => false);
+
+      if (paymentComplete) {
+        setStatus(statusUI, `✅ 支払い完了。続けて購入に進みます…`, 'active');
+        await delay(1000);
+        const continueBtn = findEnabledButton('続けて購入');
+        if (continueBtn) {
+          await clickInMainWorld(continueBtn);
+          return;
+        }
+      } else {
+        setStatus(statusUI, `⚠️ 支払い処理待機中…\nワンタイム認証を進めてください。\n完了後「続けて購入」をクリックしてください。`, 'error');
+        return;
+      }
     } else {
       setStatus(statusUI, '⚠️ お支払いボタンが見つかりません。手動で進めてください。', 'error');
       return;
