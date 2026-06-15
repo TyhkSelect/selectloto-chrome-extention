@@ -145,13 +145,15 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
       await clickInMainWorld(confirmBtn);
       await delay(2000);
 
-      // ページ遷移後の判定：本人確認 or 購入完了か
-      const isAuthRequired = !!document.body.textContent.includes('ワンタイム認証') ||
-                             !!document.body.textContent.includes('本人確認');
+      // ページ遷移後の判定：本人確認フォームが表示されているか
+      const isAuthRequired = !!document.body.textContent.includes('本人確認') &&
+                             (!!document.querySelector('form#lotteryActionPasswordConfirmForm') ||
+                              !!document.querySelector('input[name="password"]') ||
+                              !!document.querySelector('input[type="password"]'));
 
       if (isAuthRequired) {
-        // 本人確認待機中 → ユーザーに任せる
-        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\n入力を完了してください。\n自動で次に進みます…`, 'error');
+        // 本人確認待機中 → ユーザーに任せる（重要：ここで一旦停止）
+        setStatus(statusUI, `⚠️ 本人確認が必要です。\nパスワードを入力してください。\n「本人確認する」をクリック後、\n自動で次に進みます…`, 'error');
 
         // 購入完了ページまで最大5分待つ
         const paymentComplete = await waitFor(
