@@ -143,27 +143,46 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     const confirmBtn = findEnabledButton('お支払い内容のご確認');
     if (confirmBtn) {
       await clickInMainWorld(confirmBtn);
+      await delay(2000);
 
-      // 支払い処理完了（「購入完了」ページ表示）まで待つ（最大3分）
-      const paymentComplete = await waitFor(
-        () => !!document.body.textContent.includes('購入完了'),
-        180000
-      ).then(() => true).catch(() => false);
+      // ページ遷移後の判定：本人確認 or 購入完了か
+      const isAuthRequired = !!document.body.textContent.includes('ワンタイム認証') ||
+                             !!document.body.textContent.includes('本人確認');
 
-      if (paymentComplete) {
+      if (isAuthRequired) {
+        // 本人確認待機中 → ユーザーに任せる
+        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\n入力を完了してください。\n自動で次に進みます…`, 'error');
+
+        // 購入完了ページまで最大5分待つ
+        const paymentComplete = await waitFor(
+          () => !!document.body.textContent.includes('購入完了'),
+          300000
+        ).then(() => true).catch(() => false);
+
+        if (paymentComplete) {
+          setStatus(statusUI, `✅ 支払い完了！\n「続けて購入」をクリックして\n次の入力を自動で開始します…`, 'active');
+          await delay(1500);
+          const continueBtn = findEnabledButton('続けて購入');
+          if (continueBtn) {
+            await clickInMainWorld(continueBtn);
+            await delay(1500);
+            return;
+          }
+        }
+      } else {
+        // すぐに購入完了ページが表示された場合
         setStatus(statusUI, `✅ 支払い完了！\n「続けて購入」をクリックして\n次の入力を自動で開始します…`, 'active');
         await delay(1000);
         const continueBtn = findEnabledButton('続けて購入');
         if (continueBtn) {
           await clickInMainWorld(continueBtn);
           await delay(1500);
-          // ここから次のバッチ入力へ自動遷移
           return;
         }
-      } else {
-        setStatus(statusUI, `⚠️ 支払い処理待機中…\nワンタイム認証を進めてください。\n完了後「続けて購入」をクリックしてください。`, 'error');
-        return;
       }
+
+      setStatus(statusUI, `⚠️ 支払い処理が完了していません。\n手動で「続けて購入」をクリックしてください。`, 'error');
+      return;
     } else {
       setStatus(statusUI, '⚠️ お支払いボタンが見つかりません。手動で進めてください。', 'error');
       return;
