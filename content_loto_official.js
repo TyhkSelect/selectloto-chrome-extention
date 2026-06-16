@@ -133,65 +133,27 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     return;
   }
 
-  // 25組×2回（50組）ごとに支払いへ進む
+  // 25組×2回（50組）ごとに自動停止
   const batchesCompleted = Math.floor(currentIndex / 25);
   const isPaymentTiming = batchesCompleted > 0 && batchesCompleted % 2 === 0;
 
   if (isPaymentTiming) {
-    setStatus(statusUI, `✅ 50組の入力が完了しました。\n入力内容を確認しお支払い内容のご確認へ進みます…`, 'active');
+    setStatus(statusUI,
+      `✅ ${currentIndex}組の入力が完了しました。\n\n` +
+      `次のステップ：\n` +
+      `1️⃣ 公式サイトで支払いを完了\n` +
+      `2️⃣ 拡張を再実行\n\n` +
+      `自動で次の${currentIndex + 50}組へ…`,
+      'done'
+    );
+
+    // currentIndex を保存（次回再開時用）
     await chrome.storage.local.set({
       [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
     });
-    await delay(1200);
-    const confirmBtn = findEnabledButton('お支払い内容のご確認');
-    if (confirmBtn) {
-      await clickInMainWorld(confirmBtn);
-      await delay(2000);
 
-      // ページ遷移後の判定：本人確認フォームが表示されているか
-      const isAuthRequired = !!document.body.textContent.includes('本人確認') &&
-                             (!!document.querySelector('form#lotteryActionPasswordConfirmForm') ||
-                              !!document.querySelector('input[name="password"]') ||
-                              !!document.querySelector('input[type="password"]'));
-
-      if (isAuthRequired) {
-        // 本人確認待機中 → ユーザーに任せる（重要：ここで一旦停止）
-        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\nパスワード入力 → クレジット認証 → 自動で再開\n最大5分待機中…`, 'error');
-
-        // 購入完了ページまで最大5分待つ（クレジット認証含む）
-        const paymentComplete = await waitFor(
-          () => !!document.body.textContent.includes('購入完了'),
-          300000
-        ).then(() => true).catch(() => false);
-
-        if (paymentComplete) {
-          setStatus(statusUI, `✅ 支払い完了！\n「続けて購入」をクリックして\n次の入力を自動で開始します…`, 'active');
-          await delay(1500);
-          const continueBtn = findEnabledButton('続けて購入');
-          if (continueBtn) {
-            await clickInMainWorld(continueBtn);
-            await delay(1500);
-            return;
-          }
-        }
-      } else {
-        // すぐに購入完了ページが表示された場合
-        setStatus(statusUI, `✅ 支払い完了！\n「続けて購入」をクリックして\n次の入力を自動で開始します…`, 'active');
-        await delay(1000);
-        const continueBtn = findEnabledButton('続けて購入');
-        if (continueBtn) {
-          await clickInMainWorld(continueBtn);
-          await delay(1500);
-          return;
-        }
-      }
-
-      setStatus(statusUI, `⚠️ 支払い処理が完了していません。\n手動で「続けて購入」をクリックしてください。`, 'error');
-      return;
-    } else {
-      setStatus(statusUI, '⚠️ お支払いボタンが見つかりません。手動で進めてください。', 'error');
-      return;
-    }
+    // ここで一旦停止
+    return;
   }
 
   // 50組未満 → 買い物を続ける
