@@ -70,13 +70,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     comboList.appendChild(div);
   });
 
-  // 50組を選択
+  // 50組を選択（チェック済みの最初の組から50個）
   document.getElementById('select50').addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
+
+    // チェックされている最初のインデックスを見つける
+    let startIdx = 0;
+    for (let i = 0; i < checkboxes.length; i++) {
+      if (checkboxes[i].checked) {
+        startIdx = i;
+        break;
+      }
+    }
+
+    // startIdx から50個をチェック
+    const endIdx = Math.min(startIdx + 50, checkboxes.length);
     checkboxes.forEach((cb, idx) => {
-      cb.checked = idx < 50;
+      cb.checked = (idx >= startIdx && idx < endIdx);
     });
-    document.getElementById('status').textContent = `50組を選択しました`;
+
+    document.getElementById('status').textContent =
+      `${startIdx + 1}～${endIdx}番目を選択しました (${endIdx - startIdx}組)`;
   });
 
   let allChecked = true;
