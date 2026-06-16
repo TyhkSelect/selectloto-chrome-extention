@@ -75,12 +75,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
 
     // チェックされている最初のインデックスを見つける
-    let startIdx = 0;
+    let startIdx = -1;
     for (let i = 0; i < checkboxes.length; i++) {
       if (checkboxes[i].checked) {
         startIdx = i;
         break;
       }
+    }
+
+    // チェックが1つもない場合は0から開始
+    if (startIdx === -1) {
+      startIdx = 0;
     }
 
     // startIdx から50個をチェック
