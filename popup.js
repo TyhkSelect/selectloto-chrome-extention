@@ -112,9 +112,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   let allChecked = true;
   document.getElementById('selectAll').addEventListener('click', () => {
     allChecked = !allChecked;
-    document.querySelectorAll('#comboList input[type="checkbox"]').forEach(
-      cb => (cb.checked = allChecked)
-    );
+    const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
+
+    if (allChecked) {
+      // 全選択時：最初の50個だけをチェック
+      checkboxes.forEach((cb, idx) => {
+        cb.checked = idx < 50;
+      });
+      document.getElementById('status').textContent = `最初の50組を選択しました`;
+    } else {
+      // 全て解除
+      checkboxes.forEach(cb => (cb.checked = false));
+      document.getElementById('status').textContent = '';
+    }
   });
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -143,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     statusEl.className = 'status ok';
     statusEl.innerHTML = `✅ ${selected.length}組を保存しました`;
-    document.getElementById('startBtn').disabled = true;
+    document.getElementById('startBtn').style.display = 'none';
 
     // 公式サイトで購入するボタンを表示
     showOfficialSiteButton(lotteryType ?? 'loto6');
