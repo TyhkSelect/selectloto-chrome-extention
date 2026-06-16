@@ -153,9 +153,9 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
 
       if (isAuthRequired) {
         // 本人確認待機中 → ユーザーに任せる（重要：ここで一旦停止）
-        setStatus(statusUI, `⚠️ 本人確認が必要です。\nパスワードを入力してください。\n「本人確認する」をクリック後、\n自動で次に進みます…`, 'error');
+        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\nパスワード入力 → クレジット認証 → 自動で再開\n最大5分待機中…`, 'error');
 
-        // 購入完了ページまで最大5分待つ
+        // 購入完了ページまで最大5分待つ（クレジット認証含む）
         const paymentComplete = await waitFor(
           () => !!document.body.textContent.includes('購入完了'),
           300000
