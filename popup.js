@@ -70,6 +70,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     comboList.appendChild(div);
   });
 
+  // チェックボックスの変更イベント：50組以上選択できないようにする
+  document.querySelectorAll('#comboList input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const checked = document.querySelectorAll('#comboList input[type="checkbox"]:checked').length;
+      if (checked > 50) {
+        cb.checked = false;
+        document.getElementById('status').textContent = '⚠️ 50組までしか選択できません';
+      }
+    });
+  });
+
   // 50組を選択（チェック済みの最初の組から50個）
   document.getElementById('select50').addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
@@ -118,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 抽せん回確認ダイアログを表示
-    const confirmed = await showConfirmDialog(drawRound, selected.length);
+    const confirmed = await showConfirmDialog(drawRound, selected.length, selected);
     if (!confirmed) return;
 
     await chrome.storage.local.set({
@@ -169,25 +180,26 @@ function showOfficialSiteButton(lotteryType) {
 }
 
 // 抽せん回確認ダイアログ
-function showConfirmDialog(drawRound, count) {
+function showConfirmDialog(drawRound, count, selected) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'confirm-overlay';
+
+    // 選択した数字を一覧表示
+    const numbersList = selected
+      .map((combo, idx) => `<div style="font-size:12px;margin:4px 0;"><strong>${idx + 1}.</strong> ${combo.numbers.join(', ')} (${combo.kuchiCount}口)</div>`)
+      .join('');
+
     overlay.innerHTML = `
       <div class="confirm-box">
         <div class="confirm-title">⚠️ 抽せん回の確認</div>
         <div class="confirm-round">第 ${drawRound} 回</div>
         <div class="confirm-count">${count}組を公式サイトへ入力します</div>
-        <div class="confirm-note">
-          <strong>確認事項：</strong><br>
-          公式サイトの購入対象回が<br>
-          <strong>第 ${drawRound} 回</strong> であることを確認してください。<br><br>
-          <strong>⚠️ 通信エラーの注意：</strong><br>
-          入力完了後、申込数字・購入口数・購入金額を<br>
-          必ずご確認ください。
+        <div class="confirm-note" style="max-height:150px;overflow-y:auto;text-align:left;padding:8px;">
+          <strong>選択した数字一覧：</strong><br>
+          ${numbersList}
         </div>
         <div class="confirm-buttons">
-          <button class="btn-cancel" id="confirmCancel">キャンセル</button>
           <button class="btn-confirm" id="confirmOk">確認して開始</button>
         </div>
       </div>
@@ -197,10 +209,6 @@ function showConfirmDialog(drawRound, count) {
     document.getElementById('confirmOk').addEventListener('click', () => {
       overlay.remove();
       resolve(true);
-    });
-    document.getElementById('confirmCancel').addEventListener('click', () => {
-      overlay.remove();
-      resolve(false);
     });
   });
 }
