@@ -133,9 +133,12 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     return;
   }
 
-  // 50組ごとのカート上限チェック（50, 100, 150... で支払いへ進む）
-  if (currentIndex > 0 && currentIndex % 50 === 0) {
-    setStatus(statusUI, `✅ カート上限に達しました（${currentIndex}組）\nお支払い内容へ進みます…`, 'active');
+  // 25組×2回（50組）ごとに支払いへ進む
+  const batchesCompleted = Math.floor(currentIndex / 25);
+  const isPaymentTiming = batchesCompleted > 0 && batchesCompleted % 2 === 0;
+
+  if (isPaymentTiming) {
+    setStatus(statusUI, `✅ 50組の入力が完了しました。\n入力内容を確認しお支払い内容のご確認へ進みます…`, 'active');
     await chrome.storage.local.set({
       [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
     });
@@ -145,15 +148,17 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
       await clickInMainWorld(confirmBtn);
       await delay(2000);
 
-      // ページ遷移後の判定：本人確認 or 購入完了か
-      const isAuthRequired = !!document.body.textContent.includes('ワンタイム認証') ||
-                             !!document.body.textContent.includes('本人確認');
+      // ページ遷移後の判定：本人確認フォームが表示されているか
+      const isAuthRequired = !!document.body.textContent.includes('本人確認') &&
+                             (!!document.querySelector('form#lotteryActionPasswordConfirmForm') ||
+                              !!document.querySelector('input[name="password"]') ||
+                              !!document.querySelector('input[type="password"]'));
 
       if (isAuthRequired) {
-        // 本人確認待機中 → ユーザーに任せる
-        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\n入力を完了してください。\n自動で次に進みます…`, 'error');
+        // 本人確認待機中 → ユーザーに任せる（重要：ここで一旦停止）
+        setStatus(statusUI, `⚠️ 本人確認（ワンタイム認証）が必要です。\nパスワード入力 → クレジット認証 → 自動で再開\n最大5分待機中…`, 'error');
 
-        // 購入完了ページまで最大5分待つ
+        // 購入完了ページまで最大5分待つ（クレジット認証含む）
         const paymentComplete = await waitFor(
           () => !!document.body.textContent.includes('購入完了'),
           300000
