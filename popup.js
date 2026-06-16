@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   content.innerHTML = `
     <div class="subtitle">第${drawRound}回 ／ ${combinations.length}組</div>
     <div class="toolbar">
+      <button id="select50">50組を選択</button>
       <button id="selectAll">全選択 / 解除</button>
     </div>
     <div class="combo-list" id="comboList"></div>
@@ -67,6 +68,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       <span class="set-label">S${combo.setNumber}</span>
     `;
     comboList.appendChild(div);
+  });
+
+  // 50組を選択
+  document.getElementById('select50').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
+    checkboxes.forEach((cb, idx) => {
+      cb.checked = idx < 50;
+    });
+    document.getElementById('status').textContent = `50組を選択しました`;
   });
 
   let allChecked = true;

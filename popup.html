@@ -23,6 +23,7 @@
     .toolbar {
       display: flex;
       justify-content: flex-end;
+      gap: 6px;
       margin-bottom: 4px;
     }
     #selectAll {
@@ -34,6 +35,18 @@
       border-radius: 4px;
       cursor: pointer;
     }
+    #select50 {
+      padding: 3px 10px;
+      font-size: 12px;
+      background: #0b72d9;
+      color: #fff;
+      border: 1px solid #0b72d9;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #select50:hover { background: #085cab; }
+    #select50:disabled { background: #aaa; cursor: default; }
     .combo-list {
       max-height: 280px;
       overflow-y: auto;
