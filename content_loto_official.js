@@ -133,9 +133,12 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     return;
   }
 
-  // 50組ごとのカート上限チェック（50, 100, 150... で支払いへ進む）
-  if (currentIndex > 0 && currentIndex % 50 === 0) {
-    setStatus(statusUI, `✅ カート上限に達しました（${currentIndex}組）\nお支払い内容へ進みます…`, 'active');
+  // 25組×2回（50組）ごとに支払いへ進む
+  const batchesCompleted = Math.floor(currentIndex / 25);
+  const isPaymentTiming = batchesCompleted > 0 && batchesCompleted % 2 === 0;
+
+  if (isPaymentTiming) {
+    setStatus(statusUI, `✅ 50組の入力が完了しました。\n入力内容を確認しお支払い内容のご確認へ進みます…`, 'active');
     await chrome.storage.local.set({
       [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
     });
