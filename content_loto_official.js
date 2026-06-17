@@ -88,9 +88,24 @@ async function handleInputPage(autofill, statusUI) {
   document.body.appendChild(overlay);
 
   try {
-    await fillCombinations(batch, currentIndex, total, statusUI);
+    const result = await fillCombinations(batch, currentIndex, total, statusUI);
 
-    if (autofillCancelled) return;
+    if (autofillCancelled || result.cancelled) return;
+
+    // ★ 取りこぼし検出：実際に確定できた組数がバッチ数に満たない場合は、
+    //   カートに入れず・処理を継続せずに中止し、最初からやり直すよう案内する。
+    if (result.committed < batch.length) {
+      await chrome.storage.local.remove(AUTOFILL_KEY);
+      const detail = result.failedAt ? `（${result.failedAt}組目付近で停止）` : '';
+      setStatus(
+        statusUI,
+        `⚠️ ${batch.length}組中 ${result.committed}組しか入力できませんでした${detail}。\n` +
+        `「カートに入れる」は押さず、selectLOTO 購入入力補助から最初からやり直してください。`,
+        'error'
+      );
+      console.error('[selectLOTO] 入力取りこぼしを検出しました', { expected: batch.length, ...result });
+      return;
+    }
 
     const newIndex = currentIndex + batch.length;
     await chrome.storage.local.set({
@@ -185,9 +200,14 @@ function showPendingNotice(autofill, statusUI, label = 'LOTO') {
 
 // ===== 組み合わせ入力 =====
 
+// 1バッチを入力し、実際にサイト側で「確定できた組数」を返す。
+// 取りこぼし（パネルが切り替わらない／入力不備）を検出した場合は、
+// 上書きせずにその場で打ち切り、committed と failedAt を返す。
 async function fillCombinations(batch, startIndex, total, statusUI) {
+  let committed = 0;
+
   for (let i = 0; i < batch.length; i++) {
-    if (autofillCancelled) return;
+    if (autofillCancelled) return { committed, cancelled: true };
 
     const combo = batch[i];
     const globalIdx = startIndex + i + 1;
@@ -195,16 +215,16 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
 
     // アクティブパネルを待つ
     await waitFor(() => !!getActivePanel());
-    let panel = getActivePanel();
+    const currentPanel = getActivePanel();
 
     // リセット
-    const resetBtn = panel.querySelector('.m_lotteryNumInputNum_btn2');
+    const resetBtn = currentPanel.querySelector('.m_lotteryNumInputNum_btn2');
     if (resetBtn) { resetBtn.click(); await delay(400); }
 
     // 数字を1つずつクリック（毎回パネルを再確認）
     for (const num of combo.numbers) {
       // パネルが変更されていないか確認
-      panel = getActivePanel();
+      const panel = getActivePanel();
       if (!panel) throw new Error('アクティブパネルが見つかりません');
 
       const buttons = panel.querySelectorAll('.m_lotteryNumInputNum_btn');
@@ -221,7 +241,7 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
     }
 
     // 口数を設定
-    const kuchiSelect = panel.querySelector('.m_lotteryNumInputForm_select select');
+    const kuchiSelect = currentPanel.querySelector('.m_lotteryNumInputForm_select select');
     if (kuchiSelect) {
       const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
       nativeSetter.call(kuchiSelect, String(Math.min(combo.kuchiCount, 10)));
@@ -229,19 +249,44 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
       await delay(200);
     }
 
-    // 「次の申込数字へ」を2秒以内に試みる（最終パネルは永続的に無効なので検出できる）
-    const nextReady = await waitFor(() => isNextBtnReady(panel), 5000)
+    // 「次の申込数字へ」が有効になるか＝このパネルが妥当に入力できたか
+    const nextReady = await waitFor(() => isNextBtnReady(currentPanel), 5000)
       .then(() => true).catch(() => false);
 
     if (nextReady) {
-      panel.querySelector('.m_lotteryNumInputForm_btn').click();
-      await delay(600);
+      currentPanel.querySelector('.m_lotteryNumInputForm_btn').click();
+
+      // ★ 固定待機ではなく「アクティブパネルが別のものへ実際に切り替わった」ことを確認する。
+      //   切り替わらないまま次の組を入力すると同じパネルを上書きして1組落ちる（本命の原因）。
+      const advanced = await waitFor(() => {
+        const p = getActivePanel();
+        return p && p !== currentPanel;
+      }, 5000).then(() => true).catch(() => false);
+
+      if (!advanced) {
+        console.warn(`[selectLOTO] ${globalIdx}組目: 次のパネルへ切り替わりませんでした（取りこぼしの恐れ）`, combo.numbers);
+        return { committed, failedAt: globalIdx, reason: 'no-advance' };
+      }
+      console.log(`[selectLOTO] ${globalIdx}組目 確定`, combo.numbers, `${combo.kuchiCount}口`);
+      committed++;
     } else {
-      // 「次へ」が2秒以内に有効にならない → 最終パネル：カートを待ってbreak
-      await waitFor(() => !!findEnabledButton('カートに入れる'));
+      // 「次へ」が有効化されない → 最終枠（これ以上申込を追加できない）か、入力不備のどちらか。
+      // 「カートに入れる」が有効ならこのパネルは妥当 → 最終枠としてカウントして終了。
+      const cartReady = await waitFor(() => !!findEnabledButton('カートに入れる'), 5000)
+        .then(() => true).catch(() => false);
+
+      if (cartReady) {
+        console.log(`[selectLOTO] ${globalIdx}組目 確定（最終枠）`, combo.numbers, `${combo.kuchiCount}口`);
+        committed++;
+      } else {
+        console.warn(`[selectLOTO] ${globalIdx}組目: 「次へ」も「カートに入れる」も有効化されませんでした（入力不備）`, combo.numbers);
+        return { committed, failedAt: globalIdx, reason: 'invalid-panel' };
+      }
       break;
     }
   }
+
+  return { committed };
 }
 
 // ===== ユーティリティ =====
