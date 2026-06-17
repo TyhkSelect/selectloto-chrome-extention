@@ -1,0 +1,5 @@
+# ストア提出用ビルド成果物（build_store.sh が生成）
+store_build/
+
+# OS
+.DS_Store
