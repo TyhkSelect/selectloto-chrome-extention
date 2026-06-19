@@ -78,6 +78,25 @@ const LOTTERY_LABEL = {
 // ===== ページ処理 =====
 
 async function handleInputPage(autofill, statusUI) {
+  // ★ 抽せん回照合：公式サイトの受付中の回と保存データの回が一致するか確認
+  if (autofill.drawRound) {
+    const officialRound = detectOfficialRound();
+    const savedRound = parseInt(String(autofill.drawRound), 10);
+    if (officialRound !== null && !isNaN(savedRound) && officialRound !== savedRound) {
+      await chrome.storage.local.remove(AUTOFILL_KEY);
+      setStatus(
+        statusUI,
+        `⚠️ 抽せん回が一致しません。\n` +
+        `selectLOTO 保存: 第${savedRound}回\n` +
+        `公式サイト受付中: 第${officialRound}回\n\n` +
+        `受付期間が終了した可能性があります。\n自動入力を停止しました。`,
+        'error'
+      );
+      console.warn('[selectLOTO] 抽せん回不一致', { saved: savedRound, official: officialRound });
+      return;
+    }
+  }
+
   const currentIndex = autofill.currentIndex ?? 0;
   const total = autofill.combinations.length;
 
@@ -290,6 +309,14 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
 }
 
 // ===== ユーティリティ =====
+
+// 公式サイトページ内の「第N回」テキストから受付中の抽せん回番号を取得する。
+// 検出できない場合は null を返す（その場合は照合をスキップ）。
+function detectOfficialRound() {
+  const text = document.body?.innerText || '';
+  const match = text.match(/第\s*(\d+)\s*回/);
+  return match ? parseInt(match[1], 10) : null;
+}
 
 function isNextBtnReady(panel) {
   const btn = panel.querySelector('.m_lotteryNumInputForm_btn');
