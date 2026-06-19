@@ -44,11 +44,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     <div class="subtitle">第${drawRound}回 ／ ${combinations.length}組</div>
     <div class="toolbar">
       <button id="select50">50組を選択</button>
-      <button id="selectAll">全選択 / 解除</button>
+      <button id="selectAll">全解除</button>
     </div>
     <div class="combo-list" id="comboList"></div>
     <div class="actions">
-      <button id="startBtn">公式サイトで入力開始</button>
+      <button id="startBtn">確認画面に進む</button>
+    </div>
+    <div class="warning-note">
+      公式サイトで一度に入力できるのは <strong>50組まで</strong> です。<br>
+      50組を超える場合は、<strong>50組ごとに購入（支払い）手続き</strong>が必要になります。
     </div>
     <div class="status" id="status"></div>
   `;
@@ -61,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(n => `<span class="num-chip">${String(n).padStart(2, '0')}</span>`)
       .join('');
     div.innerHTML = `
-      <input type="checkbox" id="c${i}" checked data-index="${i}">
+      <input type="checkbox" id="c${i}" ${i < 50 ? 'checked' : ''} data-index="${i}">
       <span class="combo-index">${i + 1}</span>
       <label for="c${i}" class="combo-numbers">${nums}</label>
       <span class="kuchi-badge">${combo.kuchiCount}口</span>
@@ -109,22 +113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       `${startIdx + 1}～${endIdx}番目を選択しました (${endIdx - startIdx}組)`;
   });
 
-  let allChecked = true;
+  // 全解除：すべてのチェックを外す
   document.getElementById('selectAll').addEventListener('click', () => {
-    allChecked = !allChecked;
     const checkboxes = document.querySelectorAll('#comboList input[type="checkbox"]');
-
-    if (allChecked) {
-      // 全選択時：最初の50個だけをチェック
-      checkboxes.forEach((cb, idx) => {
-        cb.checked = idx < 50;
-      });
-      document.getElementById('status').textContent = `最初の50組を選択しました`;
-    } else {
-      // 全て解除
-      checkboxes.forEach(cb => (cb.checked = false));
-      document.getElementById('status').textContent = '';
-    }
+    checkboxes.forEach(cb => (cb.checked = false));
+    document.getElementById('status').textContent = '';
   });
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -151,43 +144,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
     });
 
-    statusEl.className = 'status ok';
-    statusEl.innerHTML = `✅ ${selected.length}組を保存しました`;
-    document.getElementById('startBtn').style.display = 'none';
-
-    // 公式サイトで購入するボタンを表示
-    showOfficialSiteButton(lotteryType ?? 'loto6');
-  });
-});
-
-// 公式サイトボタンを表示
-function showOfficialSiteButton(lotteryType) {
-  const actionsDiv = document.querySelector('.actions');
-
-  const officialBtn = document.createElement('button');
-  officialBtn.id = 'officialSiteBtn';
-  officialBtn.textContent = '公式サイトで購入する';
-  officialBtn.addEventListener('click', () => {
-    // 直接購入ページへアクセス（リダイレクト不要）
+    // 補助画面に戻らず、そのまま公式サイトの購入ページへ進む
     const urls = {
       loto6: 'https://www.takarakuji-official.jp/ec/loto6/',
       loto7: 'https://www.takarakuji-official.jp/ec/loto7/',
       miniloto: 'https://www.takarakuji-official.jp/ec/miniloto/'
     };
-    const url = urls[lotteryType] || urls.loto6;
+    const url = urls[lotteryType ?? 'loto6'] || urls.loto6;
     chrome.tabs.create({ url });
   });
-  actionsDiv.appendChild(officialBtn);
-
-  // 注記メッセージを追加
-  const warningDiv = document.createElement('div');
-  warningDiv.className = 'warning-note';
-  warningDiv.innerHTML = `
-    <strong>⚠️ ご注意：</strong><br>
-    公式サイトを既に開いている場合は、サイト内の「ホーム」を押してからご利用ください。
-  `;
-  actionsDiv.appendChild(warningDiv);
-}
+});
 
 // 抽せん回確認ダイアログ
 function showConfirmDialog(drawRound, count, selected) {
@@ -210,11 +176,17 @@ function showConfirmDialog(drawRound, count, selected) {
           ${numbersList}
         </div>
         <div class="confirm-buttons">
-          <button class="btn-confirm" id="confirmOk">確認して開始</button>
+          <button class="btn-cancel" id="confirmBack">前の画面に戻る</button>
+          <button class="btn-confirm" id="confirmOk">公式サイトでの購入へ進む</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
+
+    document.getElementById('confirmBack').addEventListener('click', () => {
+      overlay.remove();
+      resolve(false);
+    });
 
     document.getElementById('confirmOk').addEventListener('click', () => {
       overlay.remove();
