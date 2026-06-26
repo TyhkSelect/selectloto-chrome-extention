@@ -33,11 +33,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const { lotteryType, drawRound, combinations } = result;
+  let { lotteryType, drawRound, combinations } = result ?? {};
 
+  // sendMessage が iframe に届かなかった場合のフォールバック（Orion iOS 等）
   if (!combinations || combinations.length === 0) {
-    content.innerHTML = '<div class="msg">組み合わせデータがありません</div>';
-    return;
+    const stored = await chrome.storage.local.get('selectloto_current_combinations');
+    const cached = stored.selectloto_current_combinations;
+    if (cached?.combinations?.length > 0 && Date.now() - cached.timestamp < 120000) {
+      lotteryType = cached.lotteryType;
+      drawRound = cached.drawRound;
+      combinations = cached.combinations;
+    } else {
+      content.innerHTML = '<div class="msg">組み合わせデータがありません</div>';
+      return;
+    }
   }
 
   content.innerHTML = `
