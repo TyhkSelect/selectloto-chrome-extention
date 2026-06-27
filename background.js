@@ -1,6 +1,19 @@
 // MAIN world でクリックを実行するリクエストを content script から受け取る
 // （サイトCSP の javascript: URL ブロックを background の executeScript で回避）
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // スマホ版ページボタン → 公式サイトを新タブで開く
+  if (msg?.type === 'OPEN_OFFICIAL_SITE') {
+    const urls = {
+      loto6:    'https://www.takarakuji-official.jp/ec/loto6/',
+      loto7:    'https://www.takarakuji-official.jp/ec/loto7/',
+      miniloto: 'https://www.takarakuji-official.jp/ec/miniloto/',
+    };
+    const url = urls[msg.lotteryType] || urls.loto6;
+    chrome.tabs.create({ url });
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (msg?.type !== 'clickInMainWorld') return;
 
   const tabId = sender.tab?.id;
