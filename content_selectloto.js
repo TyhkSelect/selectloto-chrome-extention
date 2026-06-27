@@ -106,3 +106,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     setTimeout(() => obs.disconnect(), 30000); // 最大30秒で監視終了
   }
 })();
+
+// =====================================================================
+// スマホ版 Web ページのボタンからの直接起動対応
+// ページが window.postMessage で SELECTLOTO_QUICK_AUTOFILL を送ると
+// storage にセットして公式サイトを新タブで開く
+// =====================================================================
+window.addEventListener('message', async (event) => {
+  if (event.source !== window) return;
+  const msg = event.data;
+  if (msg?.type !== 'SELECTLOTO_QUICK_AUTOFILL') return;
+
+  const { lotteryType, drawRound, combinations } = msg;
+  if (!Array.isArray(combinations) || combinations.length === 0) return;
+
+  await chrome.storage.local.set({
+    selectloto_autofill: {
+      lotteryType: lotteryType ?? 'loto6',
+      drawRound,
+      combinations,
+      currentIndex: 0,
+      timestamp: Date.now(),
+    }
+  });
+
+  chrome.runtime.sendMessage({ type: 'OPEN_OFFICIAL_SITE', lotteryType });
+});
