@@ -108,27 +108,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 })();
 
 // =====================================================================
-// スマホ版 Web ページのボタンからの直接起動対応
-// ページが window.postMessage で SELECTLOTO_QUICK_AUTOFILL を送ると
-// storage にセットして公式サイトを新タブで開く
+// ページ内「公式サイトへ」ボタン クリック検出
+// window.postMessage に依存せず DOM イベントで直接処理（確実に動作）
+// autoStorePageData() が保存した selectloto_current_combinations を使う
 // =====================================================================
-window.addEventListener('message', async (event) => {
-  if (event.source !== window) return;
-  const msg = event.data;
-  if (msg?.type !== 'SELECTLOTO_QUICK_AUTOFILL') return;
+document.addEventListener('click', async (e) => {
+  if (!e.target.closest('#_blkConfirm')) return;
 
-  const { lotteryType, drawRound, combinations } = msg;
-  if (!Array.isArray(combinations) || combinations.length === 0) return;
+  const stored = await chrome.storage.local.get('selectloto_current_combinations');
+  const data = stored.selectloto_current_combinations;
+  if (!data?.combinations?.length) return;
+  if (Date.now() - data.timestamp > 120000) return; // 2分以上古いデータは無視
 
   await chrome.storage.local.set({
     selectloto_autofill: {
-      lotteryType: lotteryType ?? 'loto6',
-      drawRound,
-      combinations,
+      lotteryType: data.lotteryType,
+      drawRound: data.drawRound,
+      combinations: data.combinations,
       currentIndex: 0,
       timestamp: Date.now(),
     }
   });
 
-  chrome.runtime.sendMessage({ type: 'OPEN_OFFICIAL_SITE', lotteryType });
-});
+  chrome.runtime.sendMessage({ type: 'OPEN_OFFICIAL_SITE', lotteryType: data.lotteryType });
+}, true); // capture phase で動的生成要素も確実に検出
