@@ -133,6 +133,7 @@ async function handleInputPage(autofill, statusUI) {
 
     setStatus(statusUI, `${batch.length}組入力完了。カートに追加中…`, 'active');
     await delay(800);
+    if (autofillCancelled) return;
 
     const cartBtn = findEnabledButton('カートに入れる');
     if (cartBtn) {
@@ -197,6 +198,7 @@ async function handleConfirmationPage(autofill, continueBtn, statusUI, label = '
     [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
   });
   await delay(1500);
+  if (autofillCancelled) return;
   await clickInMainWorld(continueBtn);
 }
 
@@ -208,6 +210,7 @@ async function handleEcTopPage(autofill, loto6Form, statusUI, label = 'LOTO') {
     [AUTOFILL_KEY]: { ...autofill, timestamp: Date.now() }
   });
   await delay(1200);
+  if (autofillCancelled) return;
   loto6Form.submit();
 }
 
@@ -238,7 +241,7 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
 
     // リセット
     const resetBtn = currentPanel.querySelector('.m_lotteryNumInputNum_btn2');
-    if (resetBtn) { resetBtn.click(); await delay(400); }
+    if (resetBtn) { resetBtn.click(); await delay(500); }
 
     // 数字を1つずつクリック（毎回パネルを再確認）
     for (const num of combo.numbers) {
@@ -273,16 +276,53 @@ async function fillCombinations(batch, startIndex, total, statusUI) {
       .then(() => true).catch(() => false);
 
     if (nextReady) {
+      // クリック前のパネル数を記録
+      const panelCountBefore = document.querySelectorAll('.m_lotteryNumBodyItemWrap').length;
       currentPanel.querySelector('.m_lotteryNumInputForm_btn').click();
+      await delay(200); // クリック後にUI反映を待つ
 
-      // ★ 固定待機ではなく「アクティブパネルが別のものへ実際に切り替わった」ことを確認する。
-      //   切り替わらないまま次の組を入力すると同じパネルを上書きして1組落ちる（本命の原因）。
+      // ★ パネル切替の検出: アクティブパネルが currentPanel から変わるのを待つ。
+      //   新パネルが DOM に追加されても currentPanel がまだアクティブな場合は false のままにする
+      //   （panels.length 増加だけでは true にしない）。
       const advanced = await waitFor(() => {
         const p = getActivePanel();
-        return p && p !== currentPanel;
+        return p !== null && p !== currentPanel;
       }, 5000).then(() => true).catch(() => false);
 
       if (!advanced) {
+        // ★ アクティブパネルが切り替わらなかった場合:
+        //   バッチ最終組でなければ「+さらに「組合せ」を追加」を試みる。
+        //   PC版: A〜F（6枠）が初期存在し、G以降は動的追加が必要な場合がある。
+        //   iPhone版: A〜E（5枠）が初期存在し、F以降は必ず"+さらに"が必要。
+        //   ※ バッチ最終組では空パネルが残るのを避けるためスキップ。
+        if (i < batch.length - 1) {
+          const addMoreBtn = findEnabledButton('さらに');
+          if (addMoreBtn) {
+            addMoreBtn.click();
+            await delay(200);
+            // 新パネルが追加され、かつアクティブになるのを待つ（両方必要）
+            const addedNewPanel = await waitFor(() => {
+              const panels = document.querySelectorAll('.m_lotteryNumBodyItemWrap');
+              const panelAdded = panels.length > panelCountBefore;
+              const p = getActivePanel();
+              return panelAdded && p !== null && p !== currentPanel;
+            }, 5000).then(() => true).catch(() => false);
+            if (addedNewPanel) {
+              console.log(`[selectLOTO] ${globalIdx}組目 確定（+さらに追加→次パネル）`, combo.numbers, `${combo.kuchiCount}口`);
+              committed++;
+              continue; // 次の組み合わせへ（新パネルがアクティブになっているはず）
+            }
+          }
+        }
+
+        // カートに入れる（最終枠 or "+さらに"失敗）チェック
+        const cartReadyAfterTimeout = await waitFor(() => !!findEnabledButton('カートに入れる'), 3000)
+          .then(() => true).catch(() => false);
+        if (cartReadyAfterTimeout) {
+          console.log(`[selectLOTO] ${globalIdx}組目 確定（最終枠）`, combo.numbers);
+          committed++;
+          break;
+        }
         console.warn(`[selectLOTO] ${globalIdx}組目: 次のパネルへ切り替わりませんでした（取りこぼしの恐れ）`, combo.numbers);
         return { committed, failedAt: globalIdx, reason: 'no-advance' };
       }
