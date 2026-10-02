@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  if (result.error === 'not_ready') {
+    content.innerHTML = '<div class="msg">入力対象が未選択、確認中、または締切後です。ページの案内を確認してください。</div>';
+    return;
+  }
+
   let { lotteryType, drawRound, combinations } = result ?? {};
 
   // sendMessage が iframe に届かなかった場合のフォールバック（Orion iOS 等）
@@ -76,9 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     div.innerHTML = `
       <input type="checkbox" id="c${i}" ${i < 50 ? 'checked' : ''} data-index="${i}">
       <span class="combo-index">${i + 1}</span>
+      <span class="set-label">S${combo.setNumber}</span>
       <label for="c${i}" class="combo-numbers">${nums}</label>
       <span class="kuchi-badge">${combo.kuchiCount}口</span>
-      <span class="set-label">S${combo.setNumber}</span>
     `;
     comboList.appendChild(div);
   });
