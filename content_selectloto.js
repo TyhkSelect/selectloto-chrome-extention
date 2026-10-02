@@ -8,8 +8,7 @@ function detectLotteryType() {
   return 'loto6';
 }
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type !== 'GET_COMBINATIONS') return;
+function readCurrentCombinations() {
 
   // このフレームにテーブルがなければ応答しない（親フレームの誤応答を防ぐ）
   const table = document.getElementById('combinationTable');
@@ -17,10 +16,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // 抽選済みの回は自動入力不可
   if (table.dataset.undrawn === '0') {
-    sendResponse({ error: 'drawn' });
-    return true;
+    return { error: table.dataset.inputState === 'not_ready' ? 'not_ready' : 'drawn' };
   }
 
+  if (table.dataset.deadline && Date.now() >= Number(table.dataset.deadline)) return {error:'not_ready'};
   const lotteryType = detectLotteryType();
   const expectedCount = NUMBER_COUNT[lotteryType];
   const drawRound = new URLSearchParams(location.search).get('draw_round') || '';
@@ -44,9 +43,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
   });
 
-  sendResponse({ lotteryType, drawRound, combinations });
-  return true;
+  if (table.dataset.inputState && !combinations.length) return {error:'not_ready'};
+  return { lotteryType, drawRound, combinations };
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type !== 'GET_COMBINATIONS') return;
+  const data = readCurrentCombinations();
+  if (!data) return;
+  sendResponse(data);return true;
 });
+
 
 // =====================================================================
 // Orion iOS など iframe への sendMessage が届かない環境向けフォールバック
@@ -54,7 +60,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // =====================================================================
 (function autoStorePageData() {
   const table = document.getElementById('combinationTable');
-  if (!table) return; // このフレームに combinationTable がなければ何もしない
+  if (!table || table.dataset.inputState) return; // 選択入力ページは共有キャッシュを使わない
 
   function extractAndStore() {
     // 抽選済みは保存しない（dataset は fetch 完了後にセットされる）
@@ -110,15 +116,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // =====================================================================
 // ページ内「公式サイトへ」ボタン クリック検出
 // window.postMessage に依存せず DOM イベントで直接処理（確実に動作）
-// autoStorePageData() が保存した selectloto_current_combinations を使う
+// 現在の表をその場で読む（別タブの共有キャッシュを使わない）
 // =====================================================================
 document.addEventListener('click', async (e) => {
-  if (!e.target.closest('#_blkConfirm')) return;
+  const trigger = e.target.closest('#_blkConfirm');
+  if (!trigger || trigger.disabled) return;
 
-  const stored = await chrome.storage.local.get('selectloto_current_combinations');
-  const data = stored.selectloto_current_combinations;
-  if (!data?.combinations?.length) return;
-  if (Date.now() - data.timestamp > 120000) return; // 2分以上古いデータは無視
+  const data = readCurrentCombinations();
+  if (data?.error || !data?.combinations?.length) return;
 
   await chrome.storage.local.set({
     selectloto_autofill: {
@@ -132,3 +137,24 @@ document.addEventListener('click', async (e) => {
 
   chrome.runtime.sendMessage({ type: 'OPEN_OFFICIAL_SITE', lotteryType: data.lotteryType });
 }, true); // capture phase で動的生成要素も確実に検出
+
+// 選択入力ページ専用。送信時に現在の表を読み、別タブのキャッシュを参照しない。
+document.documentElement.dataset.selectlotoAutofillBridge = '1';
+let selectedTransferBusy = false;
+document.addEventListener('selectloto:autofill-selected', async () => {
+  if (selectedTransferBusy) return;
+  selectedTransferBusy = true;
+  try {
+    const table = document.getElementById('combinationTable');
+    const ack = document.getElementById('ack');
+    const data = readCurrentCombinations();
+    if (!table?.dataset.inputState || !ack?.checked || !data || data.error || !data.combinations.length || data.combinations.length > 50) throw new Error('not_ready');
+    const max = {loto6:43,loto7:37,miniloto:31}[data.lotteryType];
+    if (!max || data.combinations.some(c => new Set(c.numbers).size !== NUMBER_COUNT[data.lotteryType] || c.numbers.some(n=>!Number.isInteger(n)||n<1||n>max) || !Number.isInteger(c.kuchiCount) || c.kuchiCount<1 || c.kuchiCount>10)) throw new Error('invalid');
+    await chrome.storage.local.set({selectloto_autofill:{...data,currentIndex:0,timestamp:Date.now()}});
+    await chrome.runtime.sendMessage({type:'OPEN_OFFICIAL_SITE',lotteryType:data.lotteryType});
+    document.dispatchEvent(new CustomEvent('selectloto:autofill-result',{detail:'ok'}));
+  } catch (_) {
+    document.dispatchEvent(new CustomEvent('selectloto:autofill-result',{detail:'error'}));
+  } finally {selectedTransferBusy = false;}
+});
