@@ -14,11 +14,11 @@
 |---|---|---|---|
 | Chrome拡張 | 2.0.15 | `6c6dd48` (main: `aa19d99`) | push済み |
 | iOS版 (`TyhkSelect/selectloto`) | 1.6 / Build 10 | `69b610d` | push済み・実機確認待ち |
-| Web版 | 未記入 | 未記入 | 未記入 |
-| Server API | 未記入 | 未記入 | アップロード済みとの報告あり（未検証） |
+| Web / API (`TyhkSelect/selectloto-app`) | — | `316f67d` (main, PR #234) | 本番反映済み |
 
-> iOS / Web / Server の行は、担当エージェントが各自で埋めてください。
-> 上記は他エージェントからの報告に基づく記載で、このリポジトリからは検証できていません。
+> 各行は担当エージェントが更新してください。版・commit は 2026-10-13 に実リポジトリで検証済みです。
+> **`selectloto-app` に未解決の最優先リスクがあります**（`selection_comment` 列の未適用）。
+> 詳細は `selectloto-app` の `docs/STATUS.md` を参照。
 
 ---
 
@@ -86,9 +86,12 @@ Web版を変更するエージェントは、この節を必ず確認してく�
 
 ## 未検証 / 要確認
 
-- [ ] **セットナンバー保存の方式変更に伴う DOM 契約の再確認** ← 最優先。
-      Web版の変更で上記の列構成（特に `cells[1]` のセットナンバー）が変わっていないか。
-      変わっている場合は `content_selectloto.js` の修正が必要
+- [x] **セットナンバー保存の方式変更に伴う DOM 契約の再確認** — 2026-10-13 検証済み・**問題なし**。
+      `selectloto-app` の `a0816e8`（Share persistent account set numbering across Web and iOS）
+      の後も `web/{loto6,loto7,miniloto}/*_detail_view.html` の列構成は3ゲームとも不変:
+      `No. / セット番号 / 選択数字 / 口数 / 抽せん結果 / 等級 / 賞金`。
+      `cells[1]` = セットナンバーは維持されており、拡張機能の修正は不要。
+      同コミットが触れた `combination_summary.html` の変更は保存完了時の alert 文言のみ
 - [ ] 選択入力ページからの転送を実機（iOS Orion / デスクトップChrome）で確認
 - [ ] 50組を超える選択を弾く挙動の確認（`combinations.length > 50` で `error`）
 - [ ] iOS 1.6/10 の実機結合確認（iOS側リポジトリの担当範囲）
